@@ -1,0 +1,25 @@
+{
+  "scripts": {
+    "dev:account:network": "nodemon --exec ts-node src/Account/NetworkingServer/server.ts",
+    "dev:account:process": "nodemon --exec ts-node src/Account/ProcessingServer/server.ts",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.5",
+    "@types/node": "^20.14.9",
+    "drizzle-kit": "^0.22.8",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "bignumber.js": "^9.1.2",
+    "crypto": "^1.0.1",
+    "drizzle-orm": "^0.31.2",
+    "postgres": "^3.4.4",
+    "winston": "^3.13.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+# ignore all node_modules directories
+node_modules/
+
+# ignore all .DS_Store files
+.DS_Store
+
+# ignore all .env files
+.env
+
+# ignore all files inside ./data while keeping the directory itself
+data/*
+
+# ignore all files inside ./logs while keeping the directory itself
+logs/*
