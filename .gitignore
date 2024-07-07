@@ -12,3 +12,6 @@ data/*
 
 # ignore all files inside ./logs while keeping the directory itself
 logs/*
+
+# ignore all files inside generated directories
+**/generated/*
