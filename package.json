@@ -1,9 +1,11 @@
 {
   "scripts": {
-    "dev:account:network": "nodemon --exec ts-node src/Account/NetworkingServer/server.ts",
-    "dev:account:process": "nodemon --exec ts-node src/Account/ProcessingServer/server.ts",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "dev:account": "nodemon --exec ts-node src/Account/server.ts",
+    "dev:game": "nodemon --exec ts-node src/Game/server.ts",
+    "gen:db": "drizzle-kit generate",
+    "gen:proto:account": "grpc_tools_node_protoc --ts_out=grpc_js:./src/Account/RPCServer/generated --js_out=import_style=commonjs,binary:./src/Account/RPCServer/generated --grpc_out=grpc_js:./src/Account/RPCServer/generated -I ./src/Account/RPCServer/proto ./src/Account/RPCServer/proto/*.proto",
+    "gen:proto:game": "grpc_tools_node_protoc --ts_out=grpc_js:./src/Game/RPCServer/generated --js_out=import_style=commonjs,binary:./src/Game/RPCServer/generated --grpc_out=grpc_js:./src/Game/RPCServer/generated -I ./src/Game/RPCServer/proto ./src/Game/RPCServer/proto/*.proto",
+    "migrate:db": "drizzle-kit migrate"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
@@ -14,10 +16,15 @@
     "typescript": "^5.5.3"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.10.10",
+    "@grpc/proto-loader": "^0.7.13",
     "amqplib": "^0.10.4",
     "bignumber.js": "^9.1.2",
     "crypto": "^1.0.1",
     "drizzle-orm": "^0.31.2",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.12.4",
+    "miller-rabin": "^4.0.1",
     "postgres": "^3.4.4",
     "winston": "^3.13.0",
     "winston-daily-rotate-file": "^5.0.0"

@@ -2,6 +2,8 @@ import net from 'net';
 import { EventEmitter } from 'events';
 import { TQCipher } from '../Security/TQCipher';
 import { logger } from '../../Services/LoggingService';
+import { BlowfishCipher } from '../Security/BlowfishCipher';
+import { stringToASCIBytes } from '../../Utils/EncodintHelpers';
 
 export interface ServerConfig {
   maxConnections: number;
@@ -16,9 +18,13 @@ export interface Connection {
   socket: net.Socket;
   on: (event: string, listener: (...args: any[]) => void) => void;
   buffer: Buffer;
+  exchange?: boolean;
+  exchangedData?: Buffer;
+  once: (event: string, listener: (...args: any[]) => void) => void;
+  examined?: number;
+  consumed?: number;
+  remaining?: number;
 }
-
-export const PacketFooter = Buffer.alloc(0);
 
 export class TcpServer {
   public static instance: TcpServer;
@@ -49,9 +55,7 @@ export class TcpServer {
   }
 
   public start(port: number, host: string = '0.0.0.0'): void {
-    this.server.listen(port, host, () => {
-      console.log(`Server listening on ${host}:${port}`);
-    });
+    this.server.listen(port, host, () => {});
   }
 
   public on(event: string, listener: (...args: any[]) => void): void {
@@ -68,24 +72,27 @@ export class TcpServer {
 
   public async sendAsync(
     packet: Buffer,
+    cipher: TQCipher | BlowfishCipher,
     connection: Connection,
-    packetFooter: Buffer
+    packetFooter: string
   ): Promise<void> {
-    const encrypted = Buffer.alloc(packet.length + packetFooter.length);
+    const packetFooterBuffer = Buffer.from(stringToASCIBytes(packetFooter));
+
+    const encrypted = Buffer.alloc(packet.length + packetFooterBuffer.length);
     packet.copy(encrypted, 0);
 
-    const cipher = new TQCipher();
-
     encrypted.writeUInt16LE(packet.length, 0);
-    packetFooter.copy(encrypted, packet.length);
+    packetFooterBuffer.copy(encrypted, packet.length);
 
     return new Promise<void>((resolve, reject) => {
       cipher.encrypt(encrypted, encrypted);
       try {
         connection.socket.write(encrypted, (err) => {
           if (err) {
+            console.log('Failed to send data:', err);
             reject(err);
           } else {
+            console.log('Data sent:', encrypted);
             resolve();
           }
         });
@@ -95,28 +102,38 @@ export class TcpServer {
     });
   }
 
-  public async splitting(
-    buffer: Uint8Array,
+  public splitting(
+    buffer: Buffer,
     examined: number,
     footerLength: number,
-    consumedRef: { consumed: number },
-    packetsRef: Uint8Array[]
-  ): Promise<boolean> {
-    const dataView = new DataView(buffer.buffer);
-    let consumed = consumedRef.consumed;
+    consumed: number,
+    packetsRef: Buffer[]
+  ): boolean {
+    while (consumed + 2 <= examined) {
+      // Ensure there are at least 2 bytes to read
+      if (consumed + 2 > buffer.length) {
+        throw new RangeError('Attempt to access memory outside buffer bounds');
+      }
 
-    while (consumed + 2 < examined) {
-      const length = dataView.getUint16(consumed, true); // Assuming little-endian
+      const length = buffer.readUInt16LE(consumed); // Assuming little-endian
       if (length === 0) return false;
       const expected = consumed + length + footerLength;
-      if (length > buffer.length) return false;
-      if (expected > examined) break;
 
-      packetsRef.push(buffer.slice(consumed, consumed + length + footerLength));
+      if (length > buffer.length) return false; // Length check against buffer length
+
+      if (expected > examined) break; // Expected end position should not exceed examined bytes
+
+      if (expected > buffer.length) {
+        throw new RangeError('Attempt to access memory outside buffer bounds');
+      }
+
+      // packetsRef.push(buffer.slice(consumed, consumed + length + footerLength));
+      packetsRef.push(
+        Buffer.from(buffer.slice(consumed, consumed + length + footerLength))
+      );
       consumed += length + footerLength;
     }
 
-    consumedRef.consumed = consumed;
     return true;
   }
 
@@ -137,6 +154,7 @@ export class TcpServer {
       buffer,
       on: socket.on.bind(socket),
       id: socket.remoteAddress + ':' + socket.remotePort,
+      once: socket.once.bind(socket),
     };
     this.connections.set(connection.id, connection);
 

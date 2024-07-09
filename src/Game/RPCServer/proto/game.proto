@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package game;
+
+service GameService {
+  rpc TransferAuthArgsProcedure (TransferAuthArgs) returns (TransferAuthArgsResponse);
+}
+
+message TransferAuthArgs {
+  string ipAddress = 1;
+  int32 accountId = 2;
+  int32 authorityId = 3;
+  string AuthorityName = 4;
+}
+
+message TransferAuthArgsResponse {
+  string token = 1;
+}

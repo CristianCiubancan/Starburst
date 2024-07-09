@@ -1,0 +1,16 @@
+// proto/communication.proto
+syntax = "proto3";
+
+package communication;
+
+service AccountService {
+  rpc SendMessage (Message) returns (Response);
+}
+
+message Message {
+  string text = 1;
+}
+
+message Response {
+  string result = 1;
+}

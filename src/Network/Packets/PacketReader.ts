@@ -9,16 +9,42 @@ class PacketReader {
     this.offset = 0;
   }
 
+  readInt32(): number {
+    const value = this.buffer.readInt32LE(this.offset);
+    this.offset += 4;
+    return value;
+  }
+  seek(offset: number, position: 'start' | 'current'): void {
+    switch (position) {
+      case 'start':
+        this.offset = offset;
+        break;
+      case 'current':
+        this.offset += offset;
+        break;
+      default:
+        throw new Error(`Invalid position: ${position}`);
+    }
+  }
+
   readUInt16(): number {
     const value = this.buffer.readUInt16LE(this.offset);
     this.offset += 2;
     return value;
   }
+
   readUInt32(): number {
     const value = this.buffer.readUInt32LE(this.offset);
     this.offset += 4;
     return value;
   }
+
+  readUInt64(): bigint {
+    const value = this.buffer.readBigUInt64LE(this.offset);
+    this.offset += 8;
+    return value;
+  }
+
   readBytes(length: number): Buffer {
     const value = this.buffer.slice(this.offset, this.offset + length);
     this.offset += length;

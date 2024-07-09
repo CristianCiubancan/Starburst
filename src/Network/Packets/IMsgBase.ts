@@ -13,4 +13,5 @@ export interface IProcessProps {
   user: typeof DbAccount.$inferSelect | null;
   packet: Buffer;
   connectionIdentifier: string;
+  ipAddress: string;
 }

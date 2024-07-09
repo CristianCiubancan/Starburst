@@ -22,14 +22,14 @@ class MsgConnectEx implements IMsgBase {
   type = 0;
   length = 0;
 
-  token = 0;
+  token: bigint;
   code = RejectionCodes.Clear;
   ipAddress: string | null = null;
   port = 0;
 
   constructor(
     code: RejectionCodes = RejectionCodes.Clear,
-    token: number = 0,
+    token: bigint = BigInt(0),
     ipAddress: string | null = null,
     port: number = 0
   ) {
@@ -40,18 +40,17 @@ class MsgConnectEx implements IMsgBase {
   }
 
   encode(): Buffer {
+    const stringifiedToken = this.token.toString();
     const writer = new PacketWriter();
     writer.writeUInt16(PacketTypes.MsgConnectEx);
 
     if (this.code !== RejectionCodes.Clear) {
-      // Failed login
       writer.writeUInt32(0); // Match C# uint (4 bytes)
       writer.writeUInt32(this.code); // Match C# uint (4 bytes)
     } else {
-      // Successful login
-      writer.writeUInt32(this.token); // Match C# uint (4 bytes)
+      writer.writeUInt64(this.token); // Use BigInt for 64-bit integer
       writer.writeString(this.ipAddress || '', 16); // Ensure fixed length of 16 bytes
-      writer.writeUInt16(this.port);
+      writer.writeUInt32(this.port);
       writer.writeUInt16(0);
     }
 
@@ -74,7 +73,7 @@ class MsgConnectEx implements IMsgBase {
       this.code = reader.readUInt32() as RejectionCodes; // Match C# uint (4 bytes)
     } else {
       // Successful login
-      this.token = reader.readUInt32(); // Match C# uint (4 bytes)
+      this.token = reader.readUInt64(); // Match C# uint (4 bytes)
       this.ipAddress = reader.readString(16);
       this.port = reader.readUInt16();
       reader.readUInt16(); // skip the additional ushort (2 bytes)

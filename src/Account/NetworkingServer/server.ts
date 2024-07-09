@@ -17,55 +17,67 @@ export const config: ServerConfig = {
   exchange: false,
   footerLength: 0,
 };
-
-const server = TcpServer.getInstance(config);
-
 export const loginQueueClient = getRabbitMQClient(
   constants.rabbitMqUrl,
   Queues.Login
 );
 
-loginQueueClient.connect().catch((error) => {
-  console.error('Failed to connect to RabbitMQ:', error);
-  process.exit(1); // Exit the process if RabbitMQ connection fails
-});
+export const accountTcpServer = TcpServer.getInstance(config);
 
-// Event listeners for server events
-server.on('connection', (conn: Connection) => {
-  conn.id =
-    conn.socket.remoteAddress +
-    ':' +
-    conn.socket.remotePort +
-    ' - ' +
-    new Date().toISOString();
+export const startAccountNetworkingServer = () => {
+  console.log(
+    `Account Client Server started on port ${constants.accountServerPort}`
+  );
 
-  server.addConnectionToMap(conn.id, conn);
-
-  conn.on('data', async (data: Buffer) => {
-    try {
-      const cipher = new TQCipher();
-      let newData: IProcessProps;
-      let buffer: Uint8Array = new Uint8Array(data.length);
-      cipher.decrypt(data, buffer);
-      await server.splitting(buffer, buffer.length, 0, { consumed: 0 }, []);
-
-      newData = {
-        user: null,
-        packet: Buffer.from(buffer),
-        connectionIdentifier: conn.id,
-      };
-
-      await loginQueueClient.sendToQueue(newData);
-    } catch (e) {
-      console.error('Failed to process data:', e);
-    }
+  loginQueueClient.connect().catch((error) => {
+    console.error('Failed to connect to RabbitMQ:', error);
+    process.exit(1); // Exit the process if RabbitMQ connection fails
   });
 
-  conn.on('close', () => {
-    server.removeConnectionFromMap(conn.id);
+  // Event listeners for server events
+  accountTcpServer.on('connection', (conn: Connection) => {
+    conn.id =
+      conn.socket.remoteAddress +
+      ':' +
+      conn.socket.remotePort +
+      ' - ' +
+      new Date().toISOString();
+
+    accountTcpServer.addConnectionToMap(conn.id, conn);
+
+    conn.on('data', async (data: Buffer) => {
+      try {
+        const cipher = new TQCipher();
+        let newData: IProcessProps;
+        let buffer: Uint8Array = new Uint8Array(data.length);
+        cipher.decrypt(data, buffer);
+        await accountTcpServer.splitting(
+          Buffer.from(buffer),
+          buffer.length,
+          0,
+          0,
+          []
+        );
+
+        newData = {
+          user: null,
+          packet: Buffer.from(buffer),
+          connectionIdentifier: conn.id,
+          ipAddress: conn.socket.remoteAddress || '',
+        };
+
+        await loginQueueClient.sendToQueue(newData);
+      } catch (e) {
+        console.error('Failed to process data:', e);
+      }
+    });
+
+    conn.on('close', () => {
+      accountTcpServer.removeConnectionFromMap(conn.id);
+    });
   });
-});
 
-server.start(constants.accountServerPort);
+  accountTcpServer.start(constants.accountServerPort);
 
-startRabbitMQConsumer(Queues.LoginResponse, processAccountNetworkingMessage);
+  startRabbitMQConsumer(Queues.LoginResponse, processAccountNetworkingMessage);
+};

@@ -1,3 +1,14 @@
+import { logger } from '../../Services/LoggingService';
+
+// Helper function to write 7-bit encoded integer
+function write7BitEncodedInt(writer: PacketWriter, value: number): void {
+  let v = value;
+  while (v >= 0x80) {
+    writer.writeByte((v | 0x80) & 0xff);
+    v >>= 7;
+  }
+  writer.writeByte(v & 0xff);
+}
 class PacketWriter {
   private buffer: Buffer[];
   private lengthPlaceholder: Buffer;
@@ -22,6 +33,25 @@ class PacketWriter {
     this.buffer.push(buf);
   }
 
+  writeUInt64(value: bigint): void {
+    const buf = Buffer.alloc(8);
+    if (typeof value === 'number') {
+      logger.error(
+        'writeUInt64: value is a number, converting to BigInt',
+        value
+      );
+      value = BigInt(value); // Explicitly convert number to BigInt
+    }
+    buf.writeBigUInt64LE(value, 0); // Write BigInt as unsigned 64-bit integer
+    this.buffer.push(buf);
+  }
+
+  writeByte(data: number): void {
+    const buf = Buffer.alloc(1);
+    buf.writeUInt8(data, 0);
+    this.buffer.push(buf);
+  }
+
   writeBytes(value: Buffer): void {
     this.buffer.push(value);
   }
@@ -42,6 +72,12 @@ class PacketWriter {
   writeStringWithLength(value: string): void {
     const length = value.length;
     this.buffer.push(Buffer.from([length]));
+    this.writeString(value, length);
+  }
+
+  writePrefixedString(value: string): void {
+    const length = Buffer.byteLength(value, 'ascii');
+    write7BitEncodedInt(this, length);
     this.writeString(value, length);
   }
 

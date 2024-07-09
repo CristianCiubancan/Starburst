@@ -18,7 +18,9 @@ export class RabbitMQClient {
       this.channel = await this.connection.createChannel();
       await this.channel.assertQueue(this.queueName);
       this.isConnected = true;
-      console.log(`Connected to RabbitMQ at ${this.url}`);
+      console.log(
+        `Connected to RabbitMQ at ${this.url} and queue ${this.queueName}.`
+      );
     } catch (error) {
       console.error('Failed to connect to RabbitMQ:', error);
       throw error;

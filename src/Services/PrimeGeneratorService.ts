@@ -1,41 +1,33 @@
 import BigNumber from 'bignumber.js';
 import { randomBytes } from 'crypto';
+// @ts-ignore
+import { create as createMillerRabin } from 'miller-rabin';
 
-export class PrimeGeneratorService {
-  private bitLength: number;
-  private bufferChannel: AsyncIterable<BigNumber>;
-  private generator: () => Buffer;
+const millerRabin = createMillerRabin();
 
-  constructor(capacity: number = 100, bitLength: number = 256) {
-    this.bitLength = bitLength;
-    this.generator = () => randomBytes(this.bitLength / 8);
-    this.bufferChannel = this.createBufferChannel(capacity);
-  }
+// Function to check if a number is a probable prime using the Miller-Rabin test
+async function isProbablePrime(
+  n: BigNumber,
+  iterations: number = 5
+): Promise<boolean> {
+  return millerRabin.test(n, iterations);
+}
 
-  private async *createBufferChannel(
-    capacity: number
-  ): AsyncIterable<BigNumber> {
-    const buffer: BigNumber[] = [];
-    const generatePrime = (): BigNumber => {
-      let prime: BigNumber;
-      do {
-        prime = new BigNumber(this.generator().toString('hex'), 16);
-      } while (!prime.isProbablePrime());
-      return prime;
-    };
+// Function to generate a random BigNumber of a given bit length
+function generateRandomBigNumber(bitLength: number): BigNumber {
+  return new BigNumber(randomBytes(bitLength / 8).toString('hex'), 16);
+}
 
-    while (true) {
-      if (buffer.length < capacity) {
-        buffer.push(generatePrime());
-      }
-      yield buffer.shift()!;
-    }
-  }
-
-  public async nextAsync(): Promise<BigNumber> {
-    for await (const prime of this.bufferChannel) {
+// Function to generate a probable prime number
+export async function generateProbablePrime(
+  bitLength: number = 256,
+  iterations: number = 5
+): Promise<BigNumber> {
+  let prime: BigNumber;
+  while (true) {
+    prime = generateRandomBigNumber(bitLength);
+    if (await isProbablePrime(prime, iterations)) {
       return prime;
     }
-    throw new Error('Failed to generate prime');
   }
 }

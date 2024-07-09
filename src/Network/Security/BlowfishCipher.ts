@@ -1,5 +1,9 @@
-import { randomBytes } from 'crypto';
-export const DefaultSeed = 'DR654dt34trg4UI6';
+import { stringToASCIBytes } from '../../Utils/EncodintHelpers';
+// Constants
+const BlockSize = 8;
+const KeySize = 72;
+const Rounds = 16;
+const DefaultSeed = 'DR654dt34trg4UI6';
 
 const ConstantPInit = new Uint32Array([
   0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344, 0xa4093822, 0x299f31d0,
@@ -179,40 +183,37 @@ const ConstantSInit = new Uint32Array([
   0x01c36ae4, 0xd6ebe1f9, 0x90d4f869, 0xa65cdea0, 0x3f09252d, 0xc208e69f,
   0xb74e6132, 0xce77e25b, 0x578fdfe3, 0x3ac372e6,
 ]);
-class BlowfishCipher {
-  public static readonly Default: BlowfishCipher = new BlowfishCipher();
-  public static readonly BlockSize = 8;
-  private static readonly KeySize = 72;
-  private static readonly Rounds = 16;
 
+class BlowfishCipher {
   public decryptionIV: Uint8Array;
   public encryptionIV: Uint8Array;
-  public P: Uint32Array;
-  public S: Uint32Array;
+  public P: number[];
+  public S: number[];
   private decryptCount: number;
   private encryptCount: number;
 
-  public static readonly PInit = ConstantPInit;
-  public static readonly SInit = ConstantSInit;
+  static Default: BlowfishCipher = new BlowfishCipher();
 
   constructor(seed: string = DefaultSeed) {
-    this.decryptionIV = new Uint8Array(BlowfishCipher.BlockSize);
-    this.encryptionIV = new Uint8Array(BlowfishCipher.BlockSize);
+    this.decryptionIV = new Uint8Array(BlockSize);
+    this.encryptionIV = new Uint8Array(BlockSize);
     this.decryptCount = 0;
     this.encryptCount = 0;
-    this.P = new Uint32Array(ConstantPInit);
-    this.S = new Uint32Array(ConstantSInit);
-    this.generateKeys([Buffer.from(seed, 'ascii')]);
+
+    this.P = [];
+    this.S = [];
+
+    this.generateKeys([stringToASCIBytes(seed)]);
   }
 
-  private generateKeys(seeds: any[]): void {
-    let seedBuffer = seeds[0] as Uint8Array;
-    if (seedBuffer.length > BlowfishCipher.KeySize) {
-      seedBuffer = seedBuffer.slice(0, BlowfishCipher.KeySize);
+  public generateKeys(seeds: any[]): void {
+    let seedBuffer = seeds[0];
+    if (seedBuffer.length > KeySize) {
+      seedBuffer = seedBuffer.slice(0, KeySize);
     }
 
-    this.P = ConstantPInit.slice();
-    this.S = ConstantPInit.slice();
+    this.P = [...ConstantPInit];
+    this.S = [...ConstantSInit];
 
     for (let i = 0, x = 0; i < this.P.length; i++) {
       let rv = seedBuffer[x];
@@ -226,7 +227,7 @@ class BlowfishCipher {
       this.P[i] ^= rv;
     }
 
-    let block = new Uint32Array(2);
+    const block = new Uint32Array(BlockSize / 4);
     for (let i = 0; i < this.P.length; ) {
       this.encipherBlock(block);
       this.P[i++] = block[0];
@@ -261,8 +262,7 @@ class BlowfishCipher {
       const tmp = this.decryptionIV[this.decryptCount];
       this.decryptionIV[this.decryptCount] = src[i];
       dst[i] = src[i] ^ tmp;
-      this.decryptCount =
-        (this.decryptCount + 1) & (BlowfishCipher.BlockSize - 1);
+      this.decryptCount = (this.decryptCount + 1) & (BlockSize - 1);
     }
   }
 
@@ -279,18 +279,16 @@ class BlowfishCipher {
 
       dst[i] = src[i] ^ this.encryptionIV[this.encryptCount];
       this.encryptionIV[this.encryptCount] = dst[i];
-      this.encryptCount =
-        (this.encryptCount + 1) & (BlowfishCipher.BlockSize - 1);
+      this.encryptCount = (this.encryptCount + 1) & (BlockSize - 1);
     }
   }
 
   private F(x: number): number {
-    const S = this.S;
     return (
-      (((S[(x >> 24) & 0xff] + S[0x100 + ((x >> 16) & 0xff)]) ^
-        S[0x200 + ((x >> 8) & 0xff)]) +
-        S[0x300 + (x & 0xff)]) >>>
-      0
+      (((this.S[(x >> 24) & 0xff] + this.S[0x100 + ((x >> 16) & 0xff)]) ^
+        this.S[0x200 + ((x >> 8) & 0xff)]) +
+        this.S[0x300 + (x & 0xff)]) &
+      0xffffffff
     );
   }
 
@@ -310,16 +308,16 @@ class BlowfishCipher {
     let rv = block[1];
 
     lv ^= this.P[0];
-    for (let i = 1; i <= BlowfishCipher.Rounds; i++) {
+    for (let i = 1; i <= Rounds; i++) {
       rv ^= this.P[i];
       rv ^= this.F(lv);
       [lv, rv] = [rv, lv];
     }
 
-    rv ^= this.P[BlowfishCipher.Rounds + 1];
-    block[0] = rv >>> 0;
-    block[1] = lv >>> 0;
+    rv ^= this.P[Rounds + 1];
+    block[0] = rv & 0xffffffff;
+    block[1] = lv & 0xffffffff;
   }
 }
 
-export default BlowfishCipher;
+export { BlowfishCipher };

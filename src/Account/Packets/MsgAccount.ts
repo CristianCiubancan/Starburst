@@ -6,10 +6,16 @@ import { PacketReader } from '../../Network/Packets/PacketReader';
 import { PacketWriter } from '../../Network/Packets/PacketWriter';
 import { RC5 } from '../../Network/Security/RC5';
 import { MsgConnectEx, RejectionCodes } from './MsgConnectEx';
-import { TcpServer } from '../../Network/Sockets/TcpServer';
-import { getRabbitMQClient } from '../../Utils/RabbitMQClient';
-import { constants, Queues } from '../../config/constants';
 import { loginResponseQueueClient } from '../ProcessingServer/server';
+import { TransferAuthArgProcedure } from '../RPCServer/gameProcedures';
+import { constants } from '../../config/constants';
+
+export interface ITransferAuthArgs {
+  ipAddress: string;
+  accountId: number;
+  authorityId: number;
+  authorityName: string;
+}
 
 class MsgAccount implements IMsgBase {
   length = 0;
@@ -71,8 +77,35 @@ class MsgAccount implements IMsgBase {
         user: null,
         packet: msg,
         connectionIdentifier: props.connectionIdentifier,
+        ipAddress: props.ipAddress,
       });
+      return;
     }
+    const account = accounts[0];
+
+    const transferAuthArgs: ITransferAuthArgs = {
+      ipAddress: props.ipAddress,
+      accountId: account.accountID,
+      authorityId: account.authorityID || 5,
+      authorityName: account.name || '',
+    };
+
+    const token = await TransferAuthArgProcedure(transferAuthArgs);
+
+    const msg = new MsgConnectEx(
+      RejectionCodes.Clear,
+      BigInt(token as string),
+      // BigInt(6385335909927458816),
+      constants.gamneServerHost,
+      constants.gameServerPort
+    ).encode();
+
+    loginResponseQueueClient.sendToQueue({
+      user: null,
+      packet: msg,
+      connectionIdentifier: props.connectionIdentifier,
+      ipAddress: props.ipAddress,
+    });
   }
 }
 
